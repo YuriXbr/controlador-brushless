@@ -14,6 +14,7 @@
 #include "memoryHandler.h"
 #include "flags.h"
 #include "PIDController.h"
+#include "motorController.h"
 
 WebServer server(80);
 WebSocketsServer webSocket(81);
@@ -156,6 +157,65 @@ void handleData() {
     server.send(200, "application/json", json);
 }
 
+// Função para alternar o estado do motor (iniciar/parar)
+void handleToggleMotor() {
+    if (!checkWebServerInitialized()) {
+        server.send(500, "text/plain", "Servidor não inicializado");
+        return;
+    }
+    if (checkWebServerError()) {
+        server.send(500, "text/plain", "Erro no servidor");
+        return;
+    }
+    MOTOR_RUNNING = !MOTOR_RUNNING;
+    MOTOR_STOPPED = !MOTOR_RUNNING;
+    if (MOTOR_RUNNING) {
+        resetPID(); // Reseta o PID ao ligar o motor
+        setMotorPWM(1000); // Garante PWM inicial baixo
+        rampaDePartidaAteControle(1200); // Rampa de partida suave para o controle
+    } else {
+        rampaDeDesligamento(2000); // Rampa de desligamento suave (ex: 1,2s)
+        setMotorPWM(1000); // Garante que o motor pare
+        resetPID(); // Reseta o PID ao desligar também
+        
+    }
+    debugPrint("[WEBS] Estado do motor alterado: " + String(MOTOR_RUNNING ? "Ligado" : "Desligado"));
+    server.send(200, "text/plain", MOTOR_RUNNING ? "Ligado" : "Desligado");
+}
+
+// Função para consultar o estado do motor
+void handleMotorState() {
+    if (!checkWebServerInitialized()) {
+        server.send(500, "text/plain", "Servidor não inicializado");
+        return;
+    }
+    if (checkWebServerError()) {
+        server.send(500, "text/plain", "Erro no servidor");
+        return;
+    }
+    server.send(200, "text/plain", MOTOR_RUNNING ? "Ligado" : "Desligado");
+}
+
+// Rota para alterar o setpoint via requisição GET: /setSetpoint?value=XX
+void handleSetSetpoint() {
+    if (!checkWebServerInitialized()) {
+        server.send(500, "text/plain", "Servidor não inicializado");
+        return;
+    }
+    if (checkWebServerError()) {
+        server.send(500, "text/plain", "Erro no servidor");
+        return;
+    }
+    if (server.hasArg("value")) {
+        float newSetpoint = server.arg("value").toFloat();
+        setSetpoint(newSetpoint);
+        server.send(200, "text/plain", "Setpoint atualizado para " + String(newSetpoint));
+        debugPrint("[WEBS] Setpoint alterado via web: " + String(newSetpoint));
+    } else {
+        server.send(400, "text/plain", "Parâmetro 'value' não informado");
+    }
+}
+
 // Function to handle client requests
 void handleClientRequests() {
     if (!checkWebServerInitialized()) {
@@ -188,6 +248,9 @@ void setupWebServer() {
     server.on("/setPWM", handleSetPWM);
     server.on("/manualState", handleManualState);
     server.on("/data", handleData);
+    server.on("/toggleMotor", handleToggleMotor);
+    server.on("/motorState", handleMotorState);
+    server.on("/setSetpoint", handleSetSetpoint);
     server.onNotFound([]() {
         server.send(404, "text/plain", "Not Found");
     });

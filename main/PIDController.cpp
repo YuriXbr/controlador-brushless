@@ -97,18 +97,23 @@ int computePID(float angle) {
     lastTime = now;
 
     float error = setpoint - angle;
-    if (abs(error) < 0.5) error = 0;
+    if (abs(error) < 0.65) error = 0;
 
-    integral += error * dt;
-    integral = constrain(integral, -100, 100);
+    // Só acumula integral se erro for diferente de zero
+    if (error != 0) {
+        integral += error * dt;
+        integral = constrain(integral, -100, 100);
+    }
 
     float derivative = (error - lastError) / dt;
     lastError = error;
 
     float output = Kp * error + Ki * integral + Kd * derivative;
-    currentPIDOutput = constrain(map(output, -50, 50, 1000, 2000), 1000, 2000);
+    // PWM unidirecional: erro zero = PWM_SUSTENTACAO, erro positivo aumenta PWM
+    currentPIDOutput = constrain(map(output, -50, 50, PWM_SUSTENTACAO, 2000), PWM_SUSTENTACAO, 2000);
 
-    debugPrint("[PID] Cálculo PID: erro=" + String(error) + ", integral=" + String(integral) + ", derivativo=" + String(derivative) + ", saída=" + String(output) + ", PWM=" + String(currentPIDOutput));
+    debugPrint("[PID] Cálculo: err=" + String(error) + ", i=" + String(integral) + ", d=" + String(derivative) + ", out=" + String(output) + ", PWM=" + String(currentPIDOutput)
+               + ", Kp=" + String(Kp) + ", Ki=" + String(Ki) + ", Kd=" + String(Kd) + ", SP=" + String(setpoint));
     return currentPIDOutput;
 }
 
@@ -121,4 +126,13 @@ void setSetpoint(float newSetpoint) {
         return;
     }
     writeFloatToEEPROM(12, setpoint); // Atualiza o setpoint na EEPROM
+}
+
+// Função para resetar o PID (integral, erro anterior, tempo)
+void resetPID() {
+    integral = 0;
+    lastError = 0;
+    lastTime = millis();
+    currentPIDOutput = 1000;
+    debugPrint("[PID] Reset do integrador e erro anterior do PID.");
 }

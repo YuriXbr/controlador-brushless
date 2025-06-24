@@ -11,9 +11,9 @@ int EEPROM_SIZE = 64; // Define the size of the EEPROM
 float Kp = 0.0;
 float Ki = 0.0;
 float Kd = 0.0;
-float defaultKp = 1.5;
-float defaultKi = 1.0;
-float defaultKd = 1.0;
+float defaultKp = 0.5;
+float defaultKi = 0.6;
+float defaultKd = 0.55;
 
 // Setpoint
 float setpoint = 0.0;

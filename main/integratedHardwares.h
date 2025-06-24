@@ -3,9 +3,11 @@
 
 #include <Arduino.h>
 
-// Funções para gerenciar hardwares integrados
 void initIntegratedHardwares();
 bool readButtonState(int buttonPin);
 void updateDisplay(const String& message);
 
-#endif // INTEGRATED_HARDWARES_H
+#define MOTOR_BUTTON_PIN  4 
+void handleMotorButton();
+
+#endif

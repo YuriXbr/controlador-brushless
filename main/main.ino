@@ -24,6 +24,7 @@ void setup() {
     initGyro(); // Configura o giroscópio
     setupMotorController();  // Configura o controlador de motor
     setupPIDController(); // Configura o controlador PID
+    initIntegratedHardwares(); // Inicializa hardwares integrados (botão)
 
     dumpAll(); // Realiza o dump de todos os dados para depuração
     if(EEPROM_ERROR || MPU_ERROR || MOTOR_ERROR || PID_ERROR || WIFI_ERROR || WEBSERVER_ERROR || WEBSOCKET_ERROR) {
@@ -37,26 +38,36 @@ void setup() {
         debugPrint("[SETUP] Inicialização concluída com sucesso.");
         sendDebugBuffer(); // Envia o buffer de depuração inicial
     }
+    delay(5000);
 }
 
 void loop() {
+    handleMotorButton(); // Verifica o botão liga/desliga do motor
     handleClientRequests(); // Processa requisições do cliente
-    
     currentPWM = 1000;
-    currentAngle = readGyroAngle(); // Lê o ângulo do giroscópio
-
-    static unsigned long lastPIDUpdate = 0;
-    if(millis() - lastPIDUpdate >= 20) {
-        lastPIDUpdate = millis();
-        currentAngle = readGyroAngle(); // Atualiza o ângulo do giroscópio
-        currentPWM = computePID(currentAngle); // Calcula o PWM com base no ângulo lido
-        setMotorPWM(currentPWM); // Define o PWM do motor
-
-        sendDebugBuffer(); // Envia o buffer de depuração
-    }
+    currentAngle = 0.0;
     
-
-
+    if (MOTOR_RUNNING) {
+        if (manualMode) {
+            // Modo manual: ignora PID, aplica PWM manual
+            setMotorPWM(manualPWM);
+            currentPWM = manualPWM;
+        } else {
+            currentAngle = readGyroAngle(); // Lê o ângulo do giroscópio
+            static unsigned long lastPIDUpdate = 0;
+            if(millis() - lastPIDUpdate >= 20) {
+                lastPIDUpdate = millis();
+                currentAngle = readGyroAngle(); // Atualiza o ângulo do giroscópio
+                currentPWM = computePID(currentAngle); // Calcula o PWM com base no ângulo lido
+                setMotorPWM(currentPWM); // Define o PWM do motor
+                sendDebugBuffer(); // Envia o buffer de depuração
+            }
+        }
+    } else {
+        setMotorPWM(1000); // Garante que o motor fique desligado
+        currentPWM = 1000;
+        // Não acumula erro do PID com motor desligado
+    }
 
     if (millis() - lastDebugSend > debugInterval) {
         sendDebugBuffer(); // Envia o buffer de depuração periodicamente

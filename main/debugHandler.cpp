@@ -7,17 +7,40 @@ extern WebSocketsServer webSocket;  // declaração para acesso ao webSocket
 
 std::vector<String> debugBuffer;
 unsigned long lastDebugSend = 0;
+int repeatedCount1 = 1, repeatedCount2 = 1;
+String lastMsg1 = "", lastMsg2 = "";
 
 void debugPrint(String msg) {
   if(DEBUG) {
-    // Envia a mensagem de depuração para o console serial
+    // Se igual à última mensagem
+    if (!debugBuffer.empty() && (msg == lastMsg1 || msg == ("[" + String(repeatedCount1) + "] " + lastMsg1))) {
+      repeatedCount1++;
+      debugBuffer.pop_back();
+      debugBuffer.push_back("[" + String(repeatedCount1) + "] " + lastMsg1);
+    }
+    // Se igual à penúltima mensagem
+    else if (debugBuffer.size() > 1 && (msg == lastMsg2 || msg == ("[" + String(repeatedCount2) + "] " + lastMsg2))) {
+      repeatedCount2++;
+      debugBuffer.pop_back(); // Remove a última
+      debugBuffer.pop_back(); // Remove a penúltima
+      debugBuffer.push_back("[" + String(repeatedCount2) + "] " + lastMsg2);
+      // Atualiza o histórico
+      lastMsg1 = lastMsg2;
+      repeatedCount1 = repeatedCount2;
+      lastMsg2 = "";
+      repeatedCount2 = 1;
+    } else {
+      // Nova mensagem diferente das duas últimas
+      lastMsg2 = lastMsg1;
+      repeatedCount2 = repeatedCount1;
+      lastMsg1 = msg;
+      repeatedCount1 = 1;
+      debugBuffer.push_back(msg);
+    }
     Serial.println(msg);
-    // Verifica se o buffer de depuração já atingiu o tamanho máximo
-    if (debugBuffer.size() >= 100) { // Limita a 100 mensagens
+    if (debugBuffer.size() > 500) {
       debugBuffer.erase(debugBuffer.begin());
     }
-    // Adiciona a mensagem ao buffer de depuração
-    debugBuffer.push_back(msg);
   }
 }
 
