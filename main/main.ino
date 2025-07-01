@@ -1,3 +1,7 @@
+// ESP32 Motor Control System with PID Controller
+// Features: WiFi connectivity, web interface, gyroscope feedback, motor control
+// Author: Yuri dos Anjos | Version: 2.0
+
 #include <Wire.h>
 #include <EEPROM.h>
 #include "memoryHandler.h"
@@ -13,74 +17,111 @@
 #include "memoryHandler.h"
 #include "dump.h"
 
-static unsigned long lastDebugSend = 0; // Variável para controlar o envio do buffer de depuração
+// Timing control variables
+static unsigned long lastDebugSend = 0;
+static unsigned long lastPIDUpdate = 0;
+static unsigned long lastLoopTime = 0;
+static unsigned long lastWebSocketSend = 0;
+
 void setup() {
     Wire.begin();
     Serial.begin(115200);
-    setupWiFi(); // Configurações de Wi-Fi
-    initMemory(); // Inicializa a memória EEPROM
-    setupWebServer();  // Configura o servidor web
-    Serial.println("Iniciando Sistema...");
-    initGyro(); // Configura o giroscópio
-    setupMotorController();  // Configura o controlador de motor
-    setupPIDController(); // Configura o controlador PID
-    initIntegratedHardwares(); // Inicializa hardwares integrados (botão)
+    
+    // Initialize system components
+    setupWiFi();
+    initMemory();
+    setupWebServer();
+    Serial.println("Starting Motor Control System...");
+    initGyro();
+    setupMotorController();
+    setupPIDController();
+    initIntegratedHardwares();
 
-    dumpAll(); // Realiza o dump de todos os dados para depuração
+    dumpAll();
+    
+    // Check for initialization errors
     if(EEPROM_ERROR || MPU_ERROR || MOTOR_ERROR || PID_ERROR || WIFI_ERROR || WEBSERVER_ERROR || WEBSOCKET_ERROR) {
-        debugPrint("[SETUP] Erros encontrados durante a inicialização. Verifique os logs.");
-        sendDebugBuffer(); // Envia o buffer de depuração inicial
+        debugPrint("[SETUP] Errors found during initialization");
+        sendDebugBuffer();
         while (true) {
-            delay(1000); // Loop infinito para evitar continuar se houver erros
+            delay(1000);
         }
-        
     } else {
-        debugPrint("[SETUP] Inicialização concluída com sucesso.");
-        sendDebugBuffer(); // Envia o buffer de depuração inicial
+        debugPrint("[SETUP] System initialization complete");
+        sendDebugBuffer();
     }
-    delay(5000);
+    
+    // Initialize timing variables
+    lastPIDUpdate = micros();
+    lastLoopTime = micros();
+    lastDebugSend = millis();
+    lastWebSocketSend = millis();
 }
 
 void loop() {
-    handleMotorButton(); // Verifica o botão liga/desliga do motor
-    handleClientRequests(); // Processa requisições do cliente
-    currentPWM = 1000;
-    currentAngle = 0.0;
+    unsigned long currentTime = micros();
     
-    if (MOTOR_RUNNING) {
-        if (manualMode) {
-            // Modo manual: ignora PID, aplica PWM manual
-            setMotorPWM(manualPWM);
-            currentPWM = manualPWM;
+    // Main loop frequency control
+    if (currentTime - lastLoopTime >= LOOP_TIME) {
+        lastLoopTime = currentTime;
+        
+        handleMotorButton();
+        handleClientRequests();
+        
+        // Update motor ramps (non-blocking)
+        updateMotorRamp();
+        
+        if (MOTOR_RUNNING) {
+            if (manualMode) {
+                // Manual mode: bypass PID, use manual PWM
+                setMotorPWM(manualPWM);
+                currentPWM = manualPWM;
+            } else {
+                // PID frequency control
+                if (currentTime - lastPIDUpdate >= PID_SAMPLE_TIME) {
+                    lastPIDUpdate = currentTime;
+                    
+                    updatePIDTiming();
+                    currentAngle = readGyroAngle();
+                    currentPWM = computePID(currentAngle);
+                    setMotorPWM(currentPWM);
+                    sendDebugBuffer();
+                }
+            }
         } else {
-            currentAngle = readGyroAngle(); // Lê o ângulo do giroscópio
-            static unsigned long lastPIDUpdate = 0;
-            if(millis() - lastPIDUpdate >= 20) {
-                lastPIDUpdate = millis();
-                currentAngle = readGyroAngle(); // Atualiza o ângulo do giroscópio
-                currentPWM = computePID(currentAngle); // Calcula o PWM com base no ângulo lido
-                setMotorPWM(currentPWM); // Define o PWM do motor
-                sendDebugBuffer(); // Envia o buffer de depuração
+            setMotorPWM(1000);
+            currentPWM = 1000;
+            Serial.println("[LOOP] Motor stopped, setting PWM to 1000");
+        }
+
+        // Periodic debug buffer transmission
+        if (millis() - lastDebugSend > debugInterval) {
+            sendDebugBuffer();
+            lastDebugSend = millis();
+        }
+        
+        // Real-time WebSocket data transmission (higher frequency)
+        if (WEBSOCKET_CONNECTED && SomeoneIsConnected && (millis() - lastWebSocketSend > WEBSOCKET_REALTIME_INTERVAL)) {
+            sendRealtimeDataFull(currentAngle, currentPWM, setpoint, currentPIDOutput, MOTOR_RUNNING);
+            lastWebSocketSend = millis();
+        }
+        
+        // Error handling with emergency stop
+        if (MOTOR_ERROR || PID_ERROR || MPU_ERROR) {
+            debugPrint("[LOOP] Critical error detected - emergency stop");
+            motorEmergencyStop();
+            emergencyDump(currentAngle, currentPWM, currentPIDOutput);
+            sendDebugBuffer();
+            
+            // Non-blocking error state - continue processing requests
+            static unsigned long lastErrorProcess = 0;
+            while (true) {
+                unsigned long currentErrorTime = millis();
+                if (currentErrorTime - lastErrorProcess >= 1000) {
+                    lastErrorProcess = currentErrorTime;
+                    handleClientRequests();
+                }
             }
         }
-    } else {
-        setMotorPWM(1000); // Garante que o motor fique desligado
-        currentPWM = 1000;
-        // Não acumula erro do PID com motor desligado
     }
-
-    if (millis() - lastDebugSend > debugInterval) {
-        sendDebugBuffer(); // Envia o buffer de depuração periodicamente
-        lastDebugSend = millis();
-    }
-    if (MOTOR_ERROR || PID_ERROR || MPU_ERROR || PWM_ERROR) {
-        debugPrint("[LOOP] Erro detectado! Verifique os logs.");
-        motorEmergencyStop(); // Aciona a parada de emergência do motor
-        emergencyDump(currentAngle, currentPWM, currentPIDOutput); // Realiza o dump de emergência
-        sendDebugBuffer(); // Envia o buffer de depuração em caso de erro
-        while (true) {
-            delay(1000); // Loop infinito para evitar continuar se houver erros
-        }
-    }
-    delay(10); // Pequeno atraso para evitar sobrecarga do loop
 }

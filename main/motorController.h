@@ -3,12 +3,13 @@
 
 #include <Arduino.h>
 
-// Novas declarações de funções
+// Motor controller functions
 void setupMotorController();
 void setMotorPWM(int pwmValue);
 void motorEmergencyStop();
+void updateMotorRamp();
+void startMotorRamp();
+void stopMotorRamp();
 uint32_t pulseWidthToDuty(float pulse_us);
-void rampaDePartidaAteControle(int tempoMs);
-void rampaDeDesligamento(int tempoMs);
 
 #endif // MOTORCONTROLLER_H

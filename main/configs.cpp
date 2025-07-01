@@ -34,3 +34,10 @@ float currentAngle = 0.0;
 // Debug
 bool DEBUG = 1;
 unsigned long debugInterval = 1000;
+
+// PID timing settings (em microssegundos para maior precisão)
+const unsigned long PID_SAMPLE_TIME = 20000; // 20ms = 50Hz - frequência ideal para PID
+const unsigned long LOOP_TIME = 10000;       // 10ms = 100Hz - frequência do loop principal
+
+// WebSocket real-time data settings
+const unsigned long WEBSOCKET_REALTIME_INTERVAL = 100; // 100ms = 10Hz para dados em tempo real

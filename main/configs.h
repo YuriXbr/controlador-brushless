@@ -36,4 +36,11 @@ extern float currentAngle;
 extern bool DEBUG;
 extern unsigned long debugInterval;
 
+// PID timing settings
+extern const unsigned long PID_SAMPLE_TIME; // Tempo de amostragem do PID em microssegundos
+extern const unsigned long LOOP_TIME;       // Tempo do loop principal em microssegundos
+
+// WebSocket real-time data settings
+extern const unsigned long WEBSOCKET_REALTIME_INTERVAL; // Intervalo para dados em tempo real via WebSocket (ms)
+
 #endif // CONFIGS_H
