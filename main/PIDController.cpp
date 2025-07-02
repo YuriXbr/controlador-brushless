@@ -96,12 +96,12 @@ int computePID(float angle) {
         return PID_OUTPUT_MIN;
     }
     
-    // Use actual timing instead of fixed dt for better accuracy
+    // Use actual timing optimized for high frequency
     unsigned long currentTime = micros();
     float dt = (currentTime - lastTime) / 1000000.0; // Convert to seconds
     
-    // Clamp dt to reasonable bounds to prevent instability
-    if (dt <= 0 || dt > 0.1) { // If dt is invalid or too large (>100ms)
+    // Clamp dt to reasonable bounds - tighter for high frequency
+    if (dt <= 0 || dt > 0.01) { // If dt is invalid or too large (>10ms)
         dt = PID_SAMPLE_TIME / 1000000.0; // Use configured sample time
     }
     
@@ -174,9 +174,14 @@ int computePID(float angle) {
     // Final safety constraint
     currentPIDOutput = constrain(currentPIDOutput, PID_OUTPUT_MIN, PID_OUTPUT_MAX);
     
-    debugPrint("[PID] e=" + String(error, 2) + ", i=" + String(integral, 2) + 
-               ", d=" + String(filteredDerivative, 2) + ", raw=" + String(output, 2) +
-               ", out=" + String(currentPIDOutput) + ", dt=" + String(dt * 1000, 1) + "ms");
+    // Debug output - reduced frequency for high-speed operation
+    static unsigned long lastDebugTime = 0;
+    if (currentTime - lastDebugTime > 100000) { // Debug every 100ms to reduce overhead
+        debugPrint("[PID] e=" + String(error, 2) + ", i=" + String(integral, 2) + 
+                   ", d=" + String(filteredDerivative, 2) + ", raw=" + String(output, 2) +
+                   ", out=" + String(currentPIDOutput) + ", dt=" + String(dt * 1000, 1) + "ms");
+        lastDebugTime = currentTime;
+    }
     
     return currentPIDOutput;
 }
