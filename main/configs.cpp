@@ -31,13 +31,13 @@ int currentPIDOutput = 0;
 int currentPWM = 1000;
 float currentAngle = 0.0;
 
-// Debug
+// Debug - minimizado para máxima performance
 bool DEBUG = 1;
-unsigned long debugInterval = 1000;
+unsigned long debugInterval = 5000; // 5 segundos para mínimo overhead
 
-// PID timing settings (em microssegundos para maior precisão)
-const unsigned long PID_SAMPLE_TIME = 20000; // 20ms = 50Hz - frequência ideal para PID
-const unsigned long LOOP_TIME = 10000;       // 10ms = 100Hz - frequência do loop principal
+// PID timing settings (em microssegundos para velocidade extrema)
+const unsigned long PID_SAMPLE_TIME = 500;   // 0.5ms = 2kHz - velocidade extrema para PID
+const unsigned long LOOP_TIME = 250;         // 0.25ms = 4kHz - velocidade extrema do loop principal
 
 // WebSocket real-time data settings
-const unsigned long WEBSOCKET_REALTIME_INTERVAL = 100; // 100ms = 10Hz para dados em tempo real
+const unsigned long WEBSOCKET_REALTIME_INTERVAL = 25; // 25ms = 40Hz para dados em tempo real
