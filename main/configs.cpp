@@ -40,4 +40,4 @@ const unsigned long PID_SAMPLE_TIME = 500;   // 0.5ms = 2kHz - velocidade extrem
 const unsigned long LOOP_TIME = 250;         // 0.25ms = 4kHz - velocidade extrema do loop principal
 
 // WebSocket real-time data settings
-const unsigned long WEBSOCKET_REALTIME_INTERVAL = 25; // 25ms = 40Hz para dados em tempo real
+const unsigned long WEBSOCKET_REALTIME_INTERVAL = 20; // 20ms = 50Hz para dados em tempo real super responsivos

@@ -5,6 +5,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>Controle PID</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -355,36 +356,38 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
         <div class="right-panel">
             <div class="charts-flex">
                 <div class="chart-card">
-                    <h3>Ângulo em tempo real
-                        <button class="pause-btn" id="pauseAngleBtn" onclick="togglePause('angle')" title="Pausar atualização do gráfico">⏸</button>
+                    <h3>Angulo em tempo real
+                        <button class="pause-btn" id="pauseAngleBtn" onclick="togglePause('angle')" title="Pausar atualizacao do grafico">[||]</button>
                     </h3>
                     <canvas id="angleChart" width="600" height="260"></canvas>
                 </div>
                 <div class="chart-card">
                     <h3>PWM em tempo real
-                        <button class="pause-btn" id="pausePWMBtn" onclick="togglePause('pwm')" title="Pausar atualização do gráfico">⏸</button>
+                        <button class="pause-btn" id="pausePWMBtn" onclick="togglePause('pwm')" title="Pausar atualizacao do grafico">[||]</button>
                     </h3>
                     <canvas id="pwmChart" width="600" height="260"></canvas>
                 </div>
-            </div>            <button id="clearChartsBtn" onclick="clearCharts()" style="margin-top:8px;width:220px;align-self:center;">Limpar Gráficos</button>
+            </div>            <button id="clearChartsBtn" onclick="clearCharts()" style="margin-top:8px;width:220px;align-self:center;">Limpar Graficos</button>
               <!-- Controles de tempo real -->
             <div style="margin-top:12px;padding:10px;background:#f8f9fa;border-radius:6px;text-align:center;">
-                <label style="font-size:14px;font-weight:bold;color:#555;">Frequência de Atualização:</label>
+                <label style="font-size:14px;font-weight:bold;color:#555;">Frequencia de Atualizacao:</label>
                 <select id="updateFrequency" onchange="changeUpdateFrequency(this.value)" style="margin-left:8px;padding:4px;border-radius:4px;border:1px solid #ccc;">
-                    <option value="100">10.0 Hz (100ms) - Ultra Rápido</option>
-                    <option value="200" selected>5.0 Hz (200ms) - Tempo Real</option>
-                    <option value="500">2.0 Hz (500ms) - Rápido</option>
+                    <option value="20">50.0 Hz (20ms) - Maximo</option>
+                    <option value="50" selected>20.0 Hz (50ms) - Ultra Rapido</option>
+                    <option value="100">10.0 Hz (100ms) - Muito Rapido</option>
+                    <option value="200">5.0 Hz (200ms) - Tempo Real</option>
+                    <option value="500">2.0 Hz (500ms) - Rapido</option>
                     <option value="1000">1.0 Hz (1000ms) - Normal</option>
                     <option value="2000">0.5 Hz (2000ms) - Lento</option>
                 </select>
                 <br>                <div style="margin-top:8px;font-size:12px;color:#666;">
-                    <span style="margin-right:15px;">📊 Polling: 
+                    <span style="margin-right:15px;">Polling: 
                         <span id="pollingUpdateRate" style="font-weight:bold;color:#28a745;">5.0 Hz</span>
                     </span>
-                    <span style="margin-right:15px;">⚡ WebSocket: 
+                    <span style="margin-right:15px;">WebSocket: 
                         <span id="wsUpdateRate" style="color:#666;font-size:11px;">Inativo</span>
                     </span>
-                    <span id="dataSourceIndicator" style="color:#28a745;font-size:10px;">• Polling</span>
+                    <span id="dataSourceIndicator" style="color:#28a745;font-size:10px;">Polling</span>
                 </div>
             </div>
         </div><div class="left-panel">
@@ -395,7 +398,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
                 <!-- Parâmetros PID -->
                 <form action="/set" method="get" style="margin-bottom:24px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                        <span style="font-weight:bold;color:#555;">Parâmetros PID:</span>
+                        <span style="font-weight:bold;color:#555;">Parametros PID:</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:15px;margin-bottom:12px;">
                         <label for="kp" style="min-width:30px;">Kp:</label>
@@ -410,7 +413,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
                 <!-- Diagnósticos PID -->
                 <div style="margin-bottom:24px;padding:12px;background:#f8f9fa;border-radius:6px;border-left:4px solid #007BFF;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                        <span style="font-weight:bold;color:#555;">Diagnósticos PID:</span>
+                        <span style="font-weight:bold;color:#555;">Diagnosticos PID:</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <button onclick="resetPIDIntegral()" style="background:#ffc107;color:#000;min-width:100px;font-size:14px;">Reset Integral</button>
@@ -435,10 +438,10 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
                 <div style="margin-bottom:0;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                         <span style="font-weight:bold;color:#555;">Setpoint:</span>
-                        <span style="font-weight:bold;color:#666;"><span id="actualSetpointValue">0</span>°</span>
+                        <span style="font-weight:bold;color:#666;"><span id="actualSetpointValue">0</span> graus</span>
                     </div>                    <div style="display:flex;align-items:center;gap:15px;">
                         <input type="range" id="setpointSlider" min="-30" max="30" step="1" value="0" oninput="updateSetpointSlider(this.value)" style="flex:1;">
-                        <span id="setpointSliderValue" style="font-weight:bold;min-width:45px;color:#007BFF;">0°</span>
+                        <span id="setpointSliderValue" style="font-weight:bold;min-width:45px;color:#007BFF;">0 graus</span>
                         <button id="setSetpointBtn" style="min-width:120px;">Atualizar</button>
                     </div>
                 </div>
@@ -458,7 +461,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
     <div id="confirmModal" class="confirm-modal" style="display:none;">
         <div class="confirm-box">
             <span class="confirm-icon">&#9888;</span>
-            <div class="confirm-title">Atenção!</div>
+            <div class="confirm-title">Atencao!</div>
             <div id="confirmText" class="confirm-text">Deseja realmente ligar o motor?</div>
             <button onclick="confirmMotor(true)">Sim</button>
             <button onclick="confirmMotor(false)">Cancelar</button>
@@ -481,13 +484,13 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
       let pauseAngle = false, pausePWM = false;
       let pendingMotorOn = false;
       let confirmInProgress = false;
-      let updateInterval = 200; // Default: 200ms for real-time
+      let updateInterval = 50; // Default: 50ms for real-time (20Hz)
       let updateIntervalId = null;const angleChart = new Chart(angleCtx, {
         type: 'line',
         data: { 
           labels: [], 
           datasets: [{ 
-            label: 'Ângulo (°)', 
+            label: 'Angulo (graus)', 
             borderColor: 'blue', 
             backgroundColor: 'rgba(0, 0, 255, 0.1)', 
             data: [], 
@@ -510,6 +513,8 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
             },
             y: {
               beginAtZero: false,
+              min: -1,
+              max: 90,
               grid: {
                 color: 'rgba(0,0,0,0.1)'
               }
@@ -593,50 +598,78 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
           try {
             const data = JSON.parse(event.data);
             
-            // If it's a data object, update charts immediately
+            // If it's a data object, update charts immediately with high frequency
             if(data.angle !== undefined && data.pwm !== undefined) {
-              const now = new Date().toLocaleTimeString();
+              const now = performance.now();
+              const timeLabel = new Date().toLocaleTimeString();
+              
+              // Track WebSocket update frequency
+              if(!window.wsUpdateTimes) window.wsUpdateTimes = [];
+              window.wsUpdateTimes.push(now);
+              if(window.wsUpdateTimes.length > 20) window.wsUpdateTimes.shift();
+              
+              // Calculate actual WebSocket frequency
+              if(window.wsUpdateTimes.length > 5) {
+                const timeSpan = window.wsUpdateTimes[window.wsUpdateTimes.length - 1] - window.wsUpdateTimes[0];
+                const avgInterval = timeSpan / (window.wsUpdateTimes.length - 1);
+                const frequency = 1000 / avgInterval;
+                
+                const wsFreqElement = document.getElementById('wsUpdateRate');
+                if(wsFreqElement) {
+                  wsFreqElement.textContent = `${frequency.toFixed(1)} Hz`;
+                  wsFreqElement.style.color = frequency >= 30 ? '#28a745' : frequency >= 20 ? '#ffc107' : '#dc3545';
+                }
+              }
               
               if(!pauseAngle) {
-                angleChart.data.labels.push(now);
+                angleChart.data.labels.push(timeLabel);
                 angleChart.data.datasets[0].data.push(data.angle);
-                keepLastPoints(angleChart, 75); // More points for WebSocket data
-                angleChart.update('none');
+                keepLastPoints(angleChart, 100); // More points for smoother curves
+                angleChart.update('none'); // No animation for fastest update
               }
               
               if(!pausePWM) {
-                pwmChart.data.labels.push(now);
+                pwmChart.data.labels.push(timeLabel);
                 pwmChart.data.datasets[0].data.push(data.pwm);
-                keepLastPoints(pwmChart, 75);
+                keepLastPoints(pwmChart, 100);
                 pwmChart.update('none');
               }
               
-              // Update WebSocket indicators
-              const wsFreqElement = document.getElementById('wsUpdateRate');
+              // Update UI indicators with WebSocket data
               const dataSourceElement = document.getElementById('dataSourceIndicator');
-              
-              if(wsFreqElement) {
-                wsFreqElement.textContent = 'Ativo (~10Hz)';
-                wsFreqElement.style.color = '#17a2b8';
+              if(dataSourceElement) {
+                dataSourceElement.textContent = 'WebSocket (Tempo Real)';
+                dataSourceElement.style.color = '#17a2b8';
               }
               
-              if(dataSourceElement) {
-                dataSourceElement.textContent = '• WebSocket + Polling';
-                dataSourceElement.style.color = '#17a2b8';
+              // Update motor status if available
+              if(data.motor_running !== undefined) {
+                updateMotorUI(data.motor_running ? 'Ligado' : 'Desligado');
+              }
+              
+              // Update setpoint display if available
+              if(data.setpoint !== undefined) {
+                const setpointElement = document.getElementById('setpointValue');
+                if(setpointElement) {
+                  setpointElement.textContent = `${data.setpoint.toFixed(1)}°`;
+                }
               }
               
               // Reset indicator after some time if no more WebSocket data
               clearTimeout(window.wsTimeout);
               window.wsTimeout = setTimeout(() => {
+                const wsFreqElement = document.getElementById('wsUpdateRate');
+                const dataSourceElement = document.getElementById('dataSourceIndicator');
+                
                 if(wsFreqElement) {
                   wsFreqElement.textContent = 'Inativo';
                   wsFreqElement.style.color = '#666';
                 }
                 if(dataSourceElement) {
-                  dataSourceElement.textContent = '• Polling';
+                  dataSourceElement.textContent = 'Polling';
                   dataSourceElement.style.color = '#28a745';
                 }
-              }, 3000); // Reset after 3 seconds without WebSocket data
+              }, 2000); // Reset after 2 seconds without WebSocket data
               
               return; // Don't add to log
             }          } catch(e) {
@@ -717,7 +750,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
 
       function updateSetpointSlider(val) {
         console.log('updateSetpointSlider called with:', val); // Debug
-        setpointSliderValue.textContent = val + '°';
+        setpointSliderValue.textContent = val + ' graus';
         
         // Adiciona feedback visual mostrando que há uma mudança pendente
         const currentValue = actualSetpointValue.textContent.replace('°', '');
@@ -747,7 +780,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
           pwmChart.data.labels = [];
           pwmChart.data.datasets[0].data = [];
           pwmChart.update();
-          showToast("Gráficos limpos!", '#007BFF');
+          showToast("Graficos limpos!", '#007BFF');
         } finally {
           setBtnLoading(btn, false);
         }
@@ -767,11 +800,11 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
         if(type === 'angle') {
           pauseAngle = !pauseAngle;
           document.getElementById('pauseAngleBtn').classList.toggle('active', pauseAngle);
-          document.getElementById('pauseAngleBtn').textContent = pauseAngle ? '▶' : '⏸';
+          document.getElementById('pauseAngleBtn').textContent = pauseAngle ? '[>]' : '[||]';
         } else {
           pausePWM = !pausePWM;
           document.getElementById('pausePWMBtn').classList.toggle('active', pausePWM);
-          document.getElementById('pausePWMBtn').textContent = pausePWM ? '▶' : '⏸';
+          document.getElementById('pausePWMBtn').textContent = pausePWM ? '[>]' : '[||]';
         }
       }
       
@@ -835,7 +868,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
         try {
           const val = parseFloat(setpointSlider.value);
           if (val < -180 || val > 180) {
-            showToast('Setpoint deve estar entre -180° e 180°', '#dc3545');
+            showToast('Setpoint deve estar entre -180 e 180 graus', '#dc3545');
             setSetpointBtn.disabled = false;
             return;
           }
@@ -847,7 +880,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
             setpointSliderValue.style.color = '#007BFF';
             setSetpointBtn.style.background = '#007BFF';
             setSetpointBtn.textContent = 'Atualizar';
-            showToast(txt && txt.length < 60 ? txt : `Setpoint atualizado para ${val.toFixed(1)}°`, '#28a745');
+            showToast(txt && txt.length < 60 ? txt : `Setpoint atualizado para ${val.toFixed(1)} graus`, '#28a745');
           } else {
             const error = await r.text();
             showToast(error && error.length < 60 ? error : `Erro HTTP ${r.status} ao atualizar setpoint`, '#dc3545');
@@ -869,7 +902,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
           document.getElementById('ki').value = data.ki || 0;
           document.getElementById('kd').value = data.kd || 0;
           setpointSlider.value = data.setpoint || 0;
-          setpointSliderValue.textContent = (data.setpoint || 0) + '°';
+          setpointSliderValue.textContent = (data.setpoint || 0) + ' graus';
           actualSetpointValue.textContent = (data.setpoint || 0).toFixed(1);
         } catch (e) {
           console.warn('Failed to load initial PID values:', e);
@@ -878,7 +911,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
           document.getElementById('ki').value = 0;
           document.getElementById('kd').value = 0;          
           setpointSlider.value = 0;
-          setpointSliderValue.textContent = '0°';
+          setpointSliderValue.textContent = '0 graus';
           actualSetpointValue.textContent = '0.0';
         }
       }      // Load initial values when page loads
@@ -938,7 +971,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
         
         // Show toast confirmation
         const frequency = (1000 / updateInterval).toFixed(1);
-        showToast(`Frequência alterada para ${frequency} Hz (${updateInterval}ms)`, '#007BFF');
+        showToast(`Frequencia alterada para ${frequency} Hz (${updateInterval}ms)`, '#007BFF');
         
         console.log(`[Frequency] Changed to ${frequency} Hz (${updateInterval}ms interval)`);
       }      
@@ -960,22 +993,29 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
             const apiTime = performance.now() - startTime;
             const now = new Date().toLocaleTimeString();
 
-            // Update charts every cycle for real-time feel
-            let chartsUpdated = false;
-            if(!pauseAngle && data.sensor) {
-              angleChart.data.labels.push(now);
-              angleChart.data.datasets[0].data.push(data.sensor.angle);
-              keepLastPoints(angleChart, 50); // Keep more points for smooth curves
-              angleChart.update('none'); // No animation for smoother real-time
-              chartsUpdated = true;
-            }
+            // Check if WebSocket is actively providing data
+            const wsActive = window.wsUpdateTimes && 
+                           window.wsUpdateTimes.length > 0 && 
+                           (performance.now() - window.wsUpdateTimes[window.wsUpdateTimes.length - 1]) < 1000;
 
-            if(!pausePWM && data.motor) {
-              pwmChart.data.labels.push(now);
-              pwmChart.data.datasets[0].data.push(data.motor.pwm);
-              keepLastPoints(pwmChart, 50);
-              pwmChart.update('none');
-              chartsUpdated = true;
+            // Update charts every cycle for real-time feel, but skip if WebSocket is very active
+            let chartsUpdated = false;
+            if(!wsActive || updateCounter % 2 === 0) { // Reduce chart updates if WebSocket is active
+              if(!pauseAngle && data.sensor) {
+                angleChart.data.labels.push(now);
+                angleChart.data.datasets[0].data.push(data.sensor.angle);
+                keepLastPoints(angleChart, 50); // Keep more points for smooth curves
+                angleChart.update('none'); // No animation for smoother real-time
+                chartsUpdated = true;
+              }
+
+              if(!pausePWM && data.motor) {
+                pwmChart.data.labels.push(now);
+                pwmChart.data.datasets[0].data.push(data.motor.pwm);
+                keepLastPoints(pwmChart, 50);
+                pwmChart.update('none');
+                chartsUpdated = true;
+              }
             }
 
             // Measure chart update frequency
@@ -1162,7 +1202,36 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
         }, updateInterval);
       }
       
+      // Load current setpoint on page load
+      async function loadCurrentSetpoint() {
+        try {
+          const response = await fetch('/allData');
+          const data = await response.json();
+          
+          if(data.pid && data.pid.setpoint !== undefined) {
+            const setpointSlider = document.getElementById('setpointSlider');
+            const setpointDisplay = document.getElementById('setpointValue');
+            const actualSetpointValue = document.getElementById('actualSetpointValue');
+            
+            if(setpointSlider) {
+              setpointSlider.value = data.pid.setpoint;
+            }
+            if(setpointDisplay) {
+              setpointDisplay.textContent = `${data.pid.setpoint.toFixed(1)}°`;
+            }
+            if(actualSetpointValue) {
+              actualSetpointValue.textContent = data.pid.setpoint.toFixed(1);
+            }
+            
+            console.log(`[Init] Setpoint carregado: ${data.pid.setpoint} graus`);
+          }
+        } catch(error) {
+          console.warn('[Init] Erro ao carregar setpoint:', error);
+        }
+      }
+      
       // Start real-time updates when page loads
+      loadCurrentSetpoint();
       startRealtimeUpdates();
     </script>
 </body>
