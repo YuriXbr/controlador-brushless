@@ -1,8 +1,8 @@
 #include "configs.h"
 
 // Wi-Fi credentials
-const char* ssid = "VIVOFIBRA-4C58";
-const char* password = "84EED35225";
+const char* ssid = "Galaxy Note";
+const char* password = "yuri2007";
 
 // EEPROM size
 int EEPROM_SIZE = 64; // Define the size of the EEPROM
