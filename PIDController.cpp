@@ -7,18 +7,32 @@
 // PID control variables
 float integral = 0, lastError = 0;
 float filteredDerivative = 0;
-float lastOutput = PWM_SUSTENTACAO;
+float lastOutput = 1300;
 unsigned long lastTime = 0;
-const float FIXED_DT = 0.02; // 20ms fixed period for consistent behavior
+
+// Adaptive sustentation learning
+float adaptiveSustentationPWM = 1250;
+float lastStableAngle = 0;
+unsigned long stableStartTime = 0;
+bool isStable = false;
+const float STABILITY_THRESHOLD = 1.0;
+const unsigned long STABILITY_TIME = 2000;
+const float LEARNING_RATE = 0.02;
+
+static unsigned long lastDebugTime = 0;
 
 void setupPIDController() {
-    debugPrint("[PID] Initializing controller");
+    debugPrint("[PID] Initializing adaptive controller");
     
     lastTime = micros();
     integral = 0;
     lastError = 0;
     filteredDerivative = 0;
-    lastOutput = PWM_SUSTENTACAO;
+    lastOutput = 1300;
+    adaptiveSustentationPWM = 1250;
+    lastStableAngle = 0;
+    stableStartTime = 0;
+    isStable = false;
     
     if (EEPROM_INITIALIZED) {
         debugPrint("[PID] Loading parameters from EEPROM");
@@ -51,6 +65,7 @@ void setupPIDController() {
     debugPrint("[PID] Configured - Kp=" + String(Kp, 3) + ", Ki=" + String(Ki, 3) + 
                ", Kd=" + String(Kd, 3) + ", Setpoint=" + String(setpoint, 2));
     debugPrint("[PID] Sample time: " + String(PID_SAMPLE_TIME/1000.0, 1) + "ms");
+    debugPrint("[PID] Adaptive sustentation learning enabled");
     PID_INITIALIZED = true;
 }
 
@@ -96,62 +111,84 @@ int computePID(float angle) {
         return PID_OUTPUT_MIN;
     }
     
-    // Use actual timing optimized for extreme high frequency
+    // Timing optimization for high frequency
     unsigned long currentTime = micros();
-    float dt = (currentTime - lastTime) / 1000000.0; // Convert to seconds
+    float dt = (currentTime - lastTime) / 1000000.0;
     
-    // Clamp dt to reasonable bounds - ultra tight for extreme frequency
-    if (dt <= 0 || dt > 0.005) { // If dt is invalid or too large (>5ms)
-        dt = PID_SAMPLE_TIME / 1000000.0; // Use configured sample time
+    if (dt <= 0 || dt > 0.005) {
+        dt = PID_SAMPLE_TIME / 1000000.0;
     }
     
     lastTime = currentTime;
     float error = setpoint - angle;
     
-    // For gravitational unidirecional system - much smaller deadzone for precision
-    if (abs(error) < 0.5) { // Reduced from PID_DEADZONE to 0.5 degrees
+    updateAdaptiveSustentation(angle, error);
+    
+    // Deadzone for precision hover
+    bool inDeadzone = false;
+    if (abs(error) < 0.5) {
+        inDeadzone = true;
         error = 0;
-        // Keep integral steady in deadzone for hover stability - no decay needed
-        // integral remains unchanged to maintain hover power
     }
     
-    // Integral calculation optimized for gravitational compensation
+    // Integral with anti-windup
     if (error != 0) {
         integral += error * dt;
-        
-        // Constrain integral to prevent excessive windup but allow gravitational compensation
-        integral = constrain(integral, -50.0, 50.0); // Larger range for gravitational systems
+        integral = constrain(integral, -50.0, 50.0);
     }
     
-    // Derivative calculation with filtering
+    // Derivative with filtering
     float derivative = (error - lastError) / dt;
     filteredDerivative = PID_DERIVATIVE_FILTER * derivative + (1.0 - PID_DERIVATIVE_FILTER) * filteredDerivative;
     lastError = error;
     
-    // PID output calculation
     float output = Kp * error + Ki * integral + Kd * filteredDerivative;
     
-    // Gravitational system output mapping - bias towards sustentation
-    // Map output directly to PWM range with gravitational bias
-    int baseHoverPWM = 1300; // Base power needed to hover (adjust based on your system)
-    int pwmOutput = baseHoverPWM + (int)(output * 15); // Scale factor for fine control
+    int pwmOutput;
     
-    // Apply safety constraints
-    pwmOutput = constrain(pwmOutput, 1100, 1900); // Tighter range for stability
+    if (inDeadzone && abs(output) < 2.0) {
+        // Deadzone: use adaptive sustentation with minimal correction
+        pwmOutput = (int)adaptiveSustentationPWM + (int)(output * 5);
+    } else {
+        // Normal PID: adaptive base + full PID correction
+        pwmOutput = (int)adaptiveSustentationPWM + (int)(output * 10);
+    }
     
-    // Minimal filtering for immediate response in gravitational system
-    lastOutput = 0.9 * pwmOutput + 0.1 * lastOutput; // More responsive
+    // Safety constraints - allow PID to work but prevent dangerous values
+    int minPWM = 1100;
+    int maxPWM = 1900;
+    
+    // Only apply tighter limits when very close to setpoint for safety
+    if (inDeadzone) {
+        minPWM = max(1150, (int)adaptiveSustentationPWM - 100);
+        maxPWM = min(1450, (int)adaptiveSustentationPWM + 100);
+    }
+    
+    pwmOutput = constrain(pwmOutput, minPWM, maxPWM);
+    
+    // Output filtering
+    lastOutput = 0.8 * pwmOutput + 0.2 * lastOutput;
     currentPIDOutput = (int)lastOutput;
     
-    // Final safety constraint
-    currentPIDOutput = constrain(currentPIDOutput, PID_OUTPUT_MIN, PID_OUTPUT_MAX);
+    // Final safety - only prevent dangerous extremes
+    if (currentPIDOutput < 1100) {
+        debugPrint("[PID] WARNING: PWM below minimum, forcing to 1100 (was " + String(currentPIDOutput) + ")");
+        currentPIDOutput = 1100;
+    }
+    if (currentPIDOutput > 1900) {
+        debugPrint("[PID] WARNING: PWM above maximum, forcing to 1900 (was " + String(currentPIDOutput) + ")");
+        currentPIDOutput = 1900;
+    }
     
-    // Debug output - ultra reduced frequency for extreme high-speed operation
-    static unsigned long lastDebugTime = 0;
-    if (currentTime - lastDebugTime > 500000) { // Debug every 500ms to minimize overhead
-        debugPrint("[PID] e=" + String(error, 2) + ", i=" + String(integral, 2) + 
-                   ", d=" + String(filteredDerivative, 2) + ", raw=" + String(output, 2) +
-                   ", out=" + String(currentPIDOutput) + ", dt=" + String(dt * 1000, 2) + "ms");
+    // Debug output every 500ms
+    if (currentTime - lastDebugTime > 500000) {
+        String mode = inDeadzone ? "DZ" : "PID";
+        float errorMagnitude = abs(setpoint - angle);
+        debugPrint("[" + mode + "] e=" + String(error, 2) + ", |e|=" + String(errorMagnitude, 1) +
+                   ", i=" + String(integral, 2) + ", d=" + String(filteredDerivative, 2) + 
+                   ", pidOut=" + String(output, 2) + ", adaptBase=" + String(adaptiveSustentationPWM, 1) +
+                   ", finalPWM=" + String(currentPIDOutput) +
+                   ", limits=[" + String(minPWM) + "-" + String(maxPWM) + "]");
         lastDebugTime = currentTime;
     }
     
@@ -171,15 +208,25 @@ void resetPID() {
     integral = 0;
     lastError = 0;
     filteredDerivative = 0;
-    lastOutput = 1300; // Start at hover power instead of 1000
+    lastOutput = adaptiveSustentationPWM;
     lastTime = micros();
-    currentPIDOutput = 1300;
-    debugPrint("[PID] Controller reset - integral cleared, timing reset, hover bias applied");
+    currentPIDOutput = max((int)adaptiveSustentationPWM, 1150);
+    isStable = false;
+    stableStartTime = 0;
+    debugPrint("[PID] Controller reset - using safe learned sustentation PWM: " + String(currentPIDOutput));
 }
 
 void resetPIDIntegral() {
     integral = 0;
-    debugPrint("[PID] Integral term force reset to zero");
+    debugPrint("[PID] Integral term reset - keeping learned sustentation: " + String(adaptiveSustentationPWM, 1));
+}
+
+void resetAdaptiveLearning() {
+    adaptiveSustentationPWM = 1250;
+    isStable = false;
+    stableStartTime = 0;
+    lastStableAngle = 0;
+    debugPrint("[PID] Adaptive learning reset - starting conservative learning cycle at PWM 1250");
 }
 
 void updatePIDTiming() {
@@ -193,28 +240,101 @@ void updatePIDTiming() {
     }
     
     unsigned long actualInterval = currentTime - lastTimingCheck;
-    unsigned long expectedInterval = PID_SAMPLE_TIME; // Use configured sample time
+    unsigned long expectedInterval = PID_SAMPLE_TIME;
     
     long timingError = (long)actualInterval - (long)expectedInterval;
     float errorPercentage = (float)abs(timingError) / expectedInterval * 100.0;
     
-    if (errorPercentage > 15.0) { // Reduced threshold for earlier detection
+    if (errorPercentage > 15.0) {
         consecutiveTimingErrors++;
         debugPrint("[PID] Timing deviation: " + String(errorPercentage, 1) + "% (" + 
                    String(actualInterval/1000.0, 1) + "ms vs " + 
                    String(expectedInterval/1000.0, 1) + "ms expected)");
         
-        // If consistent timing issues, suggest actions
         if (consecutiveTimingErrors > 5) {
             debugPrint("[PID] WARNING: Consistent timing issues detected. Consider:");
             debugPrint("  - Reducing debug output frequency");
             debugPrint("  - Optimizing loop execution time");
             debugPrint("  - Increasing PID_SAMPLE_TIME if needed");
-            consecutiveTimingErrors = 0; // Reset counter
+            consecutiveTimingErrors = 0;
         }
     } else {
-        consecutiveTimingErrors = 0; // Reset on good timing
+        consecutiveTimingErrors = 0;
     }
     
     lastTimingCheck = currentTime;
+}
+
+// Adaptive sustentation learning system
+void updateAdaptiveSustentation(float angle, float error) {
+    unsigned long currentTime = millis();
+    
+    // Check system stability
+    if (abs(error) < STABILITY_THRESHOLD) {
+        if (!isStable) {
+            isStable = true;
+            stableStartTime = currentTime;
+            lastStableAngle = angle;
+        } else if (currentTime - stableStartTime > STABILITY_TIME) {
+            // Learn PWM after stable period
+            if (abs(angle - lastStableAngle) < 1.0) {
+                float targetPWM = currentPIDOutput;
+                
+                // Validate learning PWM range - be more permissive
+                if (targetPWM >= 1150 && targetPWM <= 1600) {
+                    float learningRate = LEARNING_RATE * 0.5;
+                    learningRate = constrain(learningRate, 0.005, 0.02);
+                    
+                    float pwmDifference = abs(targetPWM - adaptiveSustentationPWM);
+                    if (pwmDifference < 150) { // More permissive difference
+                        adaptiveSustentationPWM = adaptiveSustentationPWM * (1.0 - learningRate) + 
+                                                 targetPWM * learningRate;
+                        
+                        adaptiveSustentationPWM = constrain(adaptiveSustentationPWM, 1150, 1500);
+                        
+                        // Debug learning progress
+                        static unsigned long lastLearnDebug = 0;
+                        if (currentTime - lastLearnDebug > 2000) {
+                            debugPrint("[LEARN] angle=" + String(angle, 1) + 
+                                      ", learned=" + String(adaptiveSustentationPWM, 1) +
+                                      ", target=" + String(targetPWM, 1) + 
+                                      ", diff=" + String(pwmDifference, 1) +
+                                      ", rate=" + String(learningRate, 3));
+                            lastLearnDebug = currentTime;
+                        }
+                    } else {
+                        // Reject large PWM changes
+                        static unsigned long lastRejectDebug = 0;
+                        if (currentTime - lastRejectDebug > 3000) {
+                            debugPrint("[LEARN] Rejected learning: target=" + String(targetPWM, 1) +
+                                      ", current=" + String(adaptiveSustentationPWM, 1) +
+                                      ", diff=" + String(pwmDifference, 1) + " (too large)");
+                            lastRejectDebug = currentTime;
+                        }
+                    }
+                } else {
+                    // Reject out-of-range PWM
+                    static unsigned long lastRangeDebug = 0;
+                    if (currentTime - lastRangeDebug > 3000) {
+                        debugPrint("[LEARN] Rejected learning: target=" + String(targetPWM, 1) +
+                                  " outside range [1150-1600]");
+                        lastRangeDebug = currentTime;
+                    }
+                }
+            }
+        }
+    } else {
+        isStable = false;
+    }
+    
+    // Minimal angle compensation for large angles only
+    if (!isStable && abs(angle) > 15.0) {
+        float angleCompensation = cos(angle * PI / 180.0);
+        angleCompensation = max(angleCompensation, 0.85f);
+        
+        static float baseAdaptivePWM = adaptiveSustentationPWM;
+        float compensatedPWM = baseAdaptivePWM * angleCompensation;
+        adaptiveSustentationPWM = adaptiveSustentationPWM * 0.99f + compensatedPWM * 0.01f;
+        adaptiveSustentationPWM = constrain(adaptiveSustentationPWM, 1150.0f, 1500.0f);
+    }
 }

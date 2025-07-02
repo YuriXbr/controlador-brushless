@@ -418,6 +418,7 @@ const char PAGE_CONTENT[] PROGMEM = R"rawliteral(
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <button onclick="resetPIDIntegral()" style="background:#ffc107;color:#000;min-width:100px;font-size:14px;">Reset Integral</button>
                         <button onclick="resetCompletePID()" style="background:#dc3545;color:#fff;min-width:100px;font-size:14px;">Reset Completo</button>
+                        <button onclick="resetAdaptiveLearning()" style="background:#17a2b8;color:#fff;min-width:100px;font-size:14px;">Reset Aprendizado</button>
                         <span id="pidStatus" style="font-size:12px;color:#666;margin-left:10px;">Status: Normal</span>
                     </div>
                 </div>

@@ -451,6 +451,20 @@ void handleResetPID() {
     debugPrint("[WEBS] Complete PID reset via web interface");
 }
 
+// Reset adaptive learning endpoint
+void handleResetAdaptiveLearning() {
+    if (!checkWebServerInitialized() || checkWebServerError()) {
+        server.send(500, "text/plain", "Server error");
+        return;
+    }
+    
+    resetAdaptiveLearning();
+    invalidateCache();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "text/plain", "Adaptive learning reset - PID will relearn sustentation");
+    debugPrint("[WEBS] Adaptive learning reset via web interface");
+}
+
 // Cache optimization function
 void optimizeCache() {
     // Clear cache if memory is getting low
@@ -507,10 +521,9 @@ void setupWebServer() {
     server.on("/motorState", handleMotorState);
     server.on("/setSetpoint", handleSetSetpoint);
     server.on("/emergencyStop", handleEmergencyStop); // Emergency stop endpoint
-    server.on("/resetPIDIntegral", handleResetPIDIntegral); // Reset integral term only
-    server.on("/resetPID", handleResetPID); // Complete PID reset
     server.on("/resetPIDIntegral", handleResetPIDIntegral); // Reset PID integral term
     server.on("/resetPID", handleResetPID); // Complete PID reset
+    server.on("/resetAdaptiveLearning", handleResetAdaptiveLearning); // Reset adaptive learning
     
     server.onNotFound([]() {
         server.send(404, "text/plain", "Not Found");

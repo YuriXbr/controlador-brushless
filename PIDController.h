@@ -19,6 +19,8 @@ int computePID(float angle);
 void setSetpoint(float newSetpoint);
 void resetPID();
 void resetPIDIntegral(); // Force reset integral term
+void resetAdaptiveLearning(); // Reset adaptive sustentation learning
+void updateAdaptiveSustentation(float angle, float error); // Adaptive learning function
 void updatePIDTiming();
 
 #endif
